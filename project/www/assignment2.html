@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="">
+    <meta name="author" content="">
+    <title>IIT News</title>
+    <!-- Bootstrap core CSS -->
+    <link href="css/bootstrap.min.css" rel="stylesheet">
+	<!-- Animations CSS-->
+	<link href="css/animations.css" rel="stylesheet">
+    <style>
+    .starter-template {
+    	padding: 40px 15px;
+		  text-align: center;
+	   }
+    </style>
+  </head>
+
+  <body>
+    <div class="container">
+      <div class="hook">
+      </div>
+    </div><!-- /.container -->
+	
+	<!-- Link to use jQuery. Paste it before any other script that uses jQuery! -->
+	<script src="http://code.jquery.com/jquery-2.1.3.js"></script>
+	
+	<!-- Model structures used in the web site -->
+	<script src="./js/core.js"></script>
+	
+	<!-- Loads Videos from JSON file -->
+	<script src="./js/loader.js"></script>
+	
+	<!-- Main JavaScript -->
+	<script type="text/javascript">
+	
+		/*
+		 * VARIABLES
+		 */
+		var allVideos = [];	//array storing all videos parsed from JSON file
+		var allVideosByID = {};	//map storing all videos parsed from JSON file
+		var currentMode = 'default';	//current video mode
+		var mainThumbnailDisplayed = true;	//boolean that indicates whether the main thumbnail is displayed
+											//or if the video is shown instead		
+		/*
+		 * FUNCTIONS
+		 */
+		iitnews.renderHeading();	//render heading of the web site
+		
+		window.onload = function() {	//Retrieve videos from JSON fille
+			var retrievedVideos = loadContent();	//loadContent() calls renderPlayer()
+			allVideos = retrievedVideos[0];
+			allVideosByID = retrievedVideos[1];
+		}
+
+		//Renders the video player and fills it with the content of allVideos[]
+		var renderPlayer = function() {
+			var videoPlayerDiv = $('<div class="row" id="video-player-div"></div>'); //video player div that contains all elements
+			
+			//initializing localStorage
+			if(!localStorage.watchedVideos) localStorage.watchedVideos = "";
+			if(!localStorage.videoProgress) localStorage.videoProgress = "0";
+			if(!localStorage.displayedVideoID) localStorage.displayedVideoID = allVideos[0].id;
+			
+			/*VIDEO*/
+			var firstVideo = allVideosByID[localStorage.displayedVideoID]
+			var videoDiv = firstVideo.renderVideo();	//'#video-div'
+			videoPlayerDiv.append(videoDiv);
+			
+			/*VIDEO DESCRIPTION*/
+			var descriptionDiv = $('<div class="col-md-12" id="video-description"><p><span class="text-info"><b>Description: </b></span>' + firstVideo.description + '</p></div>');
+			videoPlayerDiv.append(descriptionDiv);
+			
+			/*CONTROLS*/
+			var controlsDiv = $('<div class="col-md-12 row" id="video-controls"></div>');
+			
+			//Play/Pause button
+			controlsDiv.append('<div class="col-md-1"><button class="btn btn-info" id="play-pause-button"><img src="./img/play-pause.png"></button></div>');
+			
+			//Progress bar
+			controlsDiv.append('<div class="col-md-4" id="progress-bar-div"><progress id="progress-bar" class="center-block" min="0" max="100" value="0"></progress></div>');
+			videoPlayerDiv.append(controlsDiv);
+			
+			//Stop Button
+			controlsDiv.append('<div class="col-md-1"><button class="btn btn-info" id="stop-button"><img src="./img/stop.png"></button></div>');
+			
+			//Hidden 'Default Mode' button
+			controlsDiv.append('<div class="col-md-2"><button class="btn btn-info" id="default-mode-2" onclick="switchMode(this)">Default Mode</button></div>');
+			
+			/*THUMBNAILS OF THE REST OF THE VIDEOS*/
+			var restVideosDiv = $('<div class="col-md-12" id="rest-videos-div"></div>');
+			restVideosDiv.append('<h4>Watch more videos:</h4>');
+			
+			//Update watched video information using localStorage
+			checkWatched();
+			
+			for(i = 0; i < allVideos.length; i++) {	//display unwatched videos first!
+				if(allVideos[i].watched === false && !(allVideos[i].id === localStorage.displayedVideoID)) {
+					var thumbnailDiv = allVideos[i].renderThumbnail();
+					restVideosDiv.append(thumbnailDiv);
+				}
+			}
+			for(i = 0; i < allVideos.length; i++) {	//display unwatched videos afterwards!
+				if(allVideos[i].watched === true && !(allVideos[i].id === localStorage.displayedVideoID)) {
+					var thumbnailDiv = allVideos[i].renderThumbnail();
+					restVideosDiv.append(thumbnailDiv);
+				}
+			}
+			videoPlayerDiv.append(restVideosDiv);
+			$('.hook').append(videoPlayerDiv);
+			//$('video').load();
+			
+			$('#default-mode-2').hide();
+			$('#progress-bar').width($('#progress-bar-div').width());	//Adjusting progress bar width
+			
+			setPlayerListeners();
+			$('video').on('loadeddata', function() {
+				var videoPercentage = parseInt(localStorage.videoProgress);	//Adjusting video progress to last stored value
+				if(!(videoPercentage === 0) && (!isNaN(videoPercentage))) {
+					mainThumbnailDisplayed = false;
+					$('#thumbnail').css({visibility:'hidden', display:'none'});
+					$('video').css({visibility:'visible', display:'initial'});
+					$('video')[0].currentTime = $('video')[0].duration * videoPercentage / 100;
+				} else {
+					$('video')[0].currentTime = 0;
+				}
+			});			
+		}
+		
+		//Sets event listeners on several elements of the video player
+		var setPlayerListeners = function() {
+			
+			//listener on play/pause button
+			$('#play-pause-button').on('click', function() {
+				
+				if($('#thumbnail').is(":visible")) {
+					$('#thumbnail').css({visibility:'hidden', display:'none'});
+					$('video').css({visibility:'visible', display:'initial'});
+					$('video')[0].play();
+					updateWatchedVideos($('video')[0].id);
+					mainThumbnailDisplayed = false;
+					
+				} else if($('video')[0].paused) {
+					$('video')[0].play();
+					
+				} else {
+					$('video')[0].pause();
+				}
+			});
+			
+			//listener on stop button
+			$('#stop-button').on('click', function() {
+				$('video')[0].pause();
+				$('video')[0].currentTime = 0;
+			});
+			
+			//listener on video to update progress bar
+			$('video')[0].ontimeupdate = function() {
+				//get the percentage of played video
+				var percent = Math.floor(100 * ($('video')[0].currentTime / $('video')[0].duration));
+				localStorage.videoProgress = percent + "";	//variable to store video progress
+				if(!isFinite(percent)) percent = 0;
+				$('#progress-bar')[0].value = percent;
+				if(percent >= 25 && !($('#video-description').attr('class') ===  "col-md-12 slide-description")) {
+					$('#video-description').attr('class', 'col-md-12 slide-description');
+					$('#video-description').css({visibility:'visible'});
+				}
+			};
+			
+			$('video').on('ended', function() {
+				if(currentMode === 'theatre') {
+					//if video ended on theatre mode, display next video
+					var currentVideo = allVideosByID[$('video')[0].id];
+					console.dir(currentVideo);
+					var nextVideo = allVideos[0];
+					for(key = 0; key < allVideos.length; key++) {
+						if ((currentVideo.id === allVideos[key].id) && (key < (allVideos.length - 1))) {
+							nextVideo = allVideos[key + 1];
+						}
+					}
+					var videoObject = {id:('thumb-' + nextVideo.id)};
+					playVideo(videoObject);
+				}
+			});
+			
+			//listener on progress bar to update video
+			$('#progress-bar').on('click', function(event){
+				if(mainThumbnailDisplayed) {
+					/*
+					$('#thumbnail').css({visibility:'hidden', display:'none'});
+					$('video').css({visibility:'visible', display:'initial'});
+					mainThumbnailDisplayed = false;
+					*/
+					return;
+				}
+				console.log('progress bar clicked');
+				var percentage = Math.round(event.pageX - $('#progress-bar').offset().left);
+				percentage = percentage * 100 / $('#progress-bar').width();	//normalize percentage to %
+				$('video')[0].currentTime = $('video')[0].duration * percentage / 100;					
+			});
+		}
+		
+		//listener on player's main image to play main video
+		function playMainVideo() {
+			$('#thumbnail').css({visibility:'hidden', display:'none'});
+			$('video').css({visibility:'visible', display:'initial'});
+			$('video')[0].play();
+			updateWatchedVideos($('video')[0].id);
+			mainThumbnailDisplayed = false;
+		}
+		
+		//called when the user clicks on any thumbnail on the footer of our player
+		function playVideo(element) {
+			console.log('playVideo(' + element.id + ')');	//debug
+			var index = element.id.substr(6);
+			console.log("Video " + index + " will be displayed");
+			var videoToBePlayed = allVideosByID[index];
+			console.dir(videoToBePlayed);
+			
+			//1. Replace main video
+			$('#video-div').find('#video-title').html(videoToBePlayed.name);
+			$('#video-div').find('#thumbnail')[0].src = videoToBePlayed.thumbnail;
+			$('#video-div').find('#thumbnail').css({visibility:'visible', display:'initial'});
+			mainThumbnailDisplayed = true;
+			$('video').find('source')[0].src = videoToBePlayed.content;
+			localStorage.videoProgress = "0";
+			$('video').load();
+			$('video').css({visibility:'hidden', display:'none'});
+			$('video')[0].id = videoToBePlayed.id;
+			localStorage.displayedVideoID = videoToBePlayed.id;
+			
+			//2. Replace video description and initialize it (hide it)
+			$('#video-description').find('p').html('<span class="text-info"><b>Description: </b></span>' + videoToBePlayed.description);
+			$('#video-description').attr('class', 'col-md-12');
+			$('#video-description').css({visibility:'hidden'});
+			
+			//3. Initialize progress bar
+			$('#progress-bar')[0].value = 0;
+			
+			//4. Update watched video information using localStorage
+			checkWatched();
+			
+			//5. Replace thumbnails
+			$('.thumb-div').remove();
+			for(var id in allVideosByID) {
+				if(id === videoToBePlayed.id) {
+					;	//do not display this thumbnail as it's from the main video
+				} else if(allVideosByID[id].watched === false) {	//Print unwatched first!!
+					var thumbnailDiv = allVideosByID[id].renderThumbnail();
+					$('#rest-videos-div').append(thumbnailDiv);
+				}
+			}
+			for(var id in allVideosByID) {
+				if(id === videoToBePlayed.id) {
+					;	//do not display this thumbnail as it's from the main video
+				} else if(allVideosByID[id].watched === true) {		//Print watched last!!
+					var thumbnailDiv = allVideosByID[id].renderThumbnail();
+					$('#rest-videos-div').append(thumbnailDiv);
+				}
+			}
+		}
+		
+		var checkWatched = function() {
+			var watchedVids = (localStorage.watchedVideos).split(',');
+			for(i = 0; i < allVideos.length; i++) {
+				for(var key in watchedVids) {
+					if(allVideos[i].id === watchedVids[key]) {
+						allVideos[i].watched = true;
+						allVideosByID[allVideos[i].id].watched = true;
+					}
+				}
+			}
+		}
+		
+		var updateWatchedVideos = function(videoID) {
+			//Update localStorage watched videos
+			var watchedVids = (localStorage.watchedVideos).split(',');
+			var updateLocalStorage = false;
+			for(var key in watchedVids) {
+				if(videoID === watchedVids[key]) {
+					break;	//Video has been already played. No need to update localStorage
+				} else {
+					updateLocalStorage = true;
+				}
+			}
+			if(updateLocalStorage) watchedVids.push(videoID);
+			localStorage.watchedVideos = watchedVids.join(',');
+		}
+		
+		//changes video mode when the user clicks the 'Default Mode' or 'Theatre mode buttons'
+		function switchMode(element) {
+			var mode = element.id.substr(0,7);
+			if(mode === currentMode) {
+				return;	//do nothing, the user is already in the video mode he wants
+			} else {
+				if(mode === "theatre") {
+					currentMode = "theatre";	//update global variable
+					
+					//change button styles
+					$('#default-mode').attr('class', 'btn btn-default');
+					$('#theatre-mode').attr('class', 'btn btn-primary');
+					
+					/*
+					*STEPS
+					*1. FADE OUT THUMBNAILS AND MAKE THEM DISPLAY:NONE
+					*2. CHANGE ORDER OF DESCRIPTION AND PLAYER CONTROLS
+					*3.MAKE #video-player-div BIGGER WITH AN ANIMATION
+					*4. FOCUS ON #video-player-div ELEMENT
+					*/
+					$('#rest-videos-div').fadeOut(2000);
+					$("body").removeClass('body-white');
+					$("body").addClass('body-black');
+					$('body').css("background-color","#000000");
+					
+					$('#video-description').fadeOut('slow',function() {
+						$('#video-controls').insertBefore('#video-description');
+						$('#video-description').fadeIn('slow');
+						//calculate height and width to fit on the screen
+						var descriptionHeight = $('#video-description').height();
+						var controlsHeight = $('#video-controls').height();
+						
+						var screenHeight = window.innerHeight;
+						//fix minimum height for the player in theatre mode, in case the console is open or there are many toolbars
+						if((screen.availHeight - window.innerHeight) > 200) screenHeight = screen.availHeight - 200;
+						
+						var optimumVideoHeight = screenHeight - descriptionHeight - controlsHeight;
+						
+						var optimumVideoWidth = Math.round(optimumVideoHeight * ($('video').width() / $('video').height()));
+						var maxVideoWidth = $('#video-description').width();
+						
+						if(optimumVideoWidth >= maxVideoWidth) optimumVideoWidth = maxVideoWidth;
+						
+						//$('#video-controls').animate({width:window.innerWidth},1000);
+						var progressBarDivWidth = $('#video-controls').width() - $('#play-pause-button').width() - $('#stop-button').width() - $('#default-mode-2').width() - 250;
+						$('#progress-bar-div').animate({width:progressBarDivWidth});
+						$('#default-mode-2').fadeIn(1000);
+						$('video').animate({width:optimumVideoWidth},1000);
+						$('#thumbnail').animate({height:optimumVideoHeight},1000);
+						
+						if(mainThumbnailDisplayed) {
+							$('video').css({visibility:'hidden', display:'none'});
+						} else {
+							$('#thumbnail').css({visibility:'hidden', display:'none'});
+						}
+						
+						var videoOffset = $('video').offset().top;
+						if($('#thumbnail').offset().top > videoOffset) videoOffset = $('#thumbnail').offset().top;
+						$("html, body").animate({scrollTop:videoOffset},1000);
+					});
+					
+				} else if (mode === "default") {
+					currentMode = "default";
+					
+					//change button styles
+					$('#default-mode').attr('class', 'btn btn-primary');
+					$('#theatre-mode').attr('class', 'btn btn-default');
+					
+					/*
+					*STEPS
+					*1. FADE IN THUMBNAILS
+					*2. CHANGE ORDER OF DESCRIPTION AND PLAYER CONTROLS
+					*3. MAKE #video-player-div SMALLER AGAIN
+					*4. FOCUS ON #top-row ELEMENT
+					*/
+					$('#rest-videos-div').fadeIn(2000);
+					
+					$('#video-description').fadeOut('slow', function() {
+						$("body").removeClass('body-black');
+						$("body").addClass('body-white');
+						$('body').css("background-color","#ffffff");
+						$('#video-description').insertBefore('#video-controls');
+						$('#video-description').fadeIn('slow');
+						
+						//$('#video-controls').animate({width:$('#top-row').width()},1000);
+						$('#progress-bar-div').animate({width:($('#progress-bar').width() + 20)});
+						$('#default-mode-2').fadeOut(1000);
+						$('video').animate({width:500},1000);
+						$('#thumbnail').animate({height:330},1000);
+						if(mainThumbnailDisplayed) {
+							$('video').css({visibility:'hidden', display:'none'});
+						} else {
+							$('#thumbnail').css({visibility:'hidden', display:'none'});
+						}
+						$("html, body").animate({scrollTop:$('#top-row').offset().top},1000);
+					});
+				}
+				console.log('Switching to ' + currentMode);
+			}
+		}
+	</script>
+	
+  </body>
+  
+</html>

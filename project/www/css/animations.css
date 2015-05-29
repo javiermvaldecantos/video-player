@@ -1,0 +1,64 @@
+/*
+ * Style for assignment 2
+ */
+
+/*Slide left animation (Firefox)*/
+@keyframes slide-left-ff {
+	from{ left: -1000px; }
+	to{ left: 0; }
+}
+
+/*Slide left animation (Chrome, Opera, Safari)*/
+@-webkit-keyframes slide-left-chrome {
+	from{ left: -1000px; }
+	to{ left: 0; }
+}
+
+/*Turn background to white animation (Firefox)*/
+@keyframes turn-white-ff {
+	from{ background-color: #000000; }
+	to{ background-color: #ffffff; }
+}
+
+/*Turn background to white animation (Chrome, Opera, Safari)*/
+@-webkit-keyframes turn-white-chrome {
+	from{ background-color: #000000; }
+	to{ background-color: #ffffff; }
+}
+
+/*Turn background to black animation (Firefox)*/
+@keyframes turn-black-ff {
+	from{ background-color: #ffffff; }
+	to{ background-color: #000000; }
+}
+
+/*Turn background to black animation (Chrome, Opera, Safari)*/
+@-webkit-keyframes turn-black-chrome {
+	from{ background-color: #ffffff; }
+	to{ background-color: #000000; }
+}
+
+.body-black {
+	animation: turn-black-ff 2s;
+	animation-iteration-count: 1;
+	-webkit-animation: turn-black-chrome 2s;
+	-webkit-animation-iteration-count: 1;
+}
+
+.body-white {
+	animation: turn-white-ff 2s;
+	animation-iteration-count: 1;
+	-webkit-animation: turn-white-chrome 2s;
+	-webkit-animation-iteration-count: 1;
+}
+
+#video-description {
+	visibility: hidden;
+}
+
+.slide-description {
+	animation: slide-left-ff 2s;
+	animation-iteration-count: 1;
+	-webkit-animation: slide-left-chrome 2s;
+	-webkit-animation-iteration-count: 1;
+}
