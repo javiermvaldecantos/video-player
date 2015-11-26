@@ -58,4 +58,4 @@ http.createServer(function(request, response) {
   });
 }).listen(parseInt(port, 10));
 
-console.log("Go to\n  => http://localhost:" + port + "/assignment2.html" + "\nCTRL + C to shutdown");
+console.log("Go to\n  => http://localhost:" + port + "/index.html" + "\nCTRL + C to shutdown");
